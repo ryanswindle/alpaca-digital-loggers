@@ -1,0 +1,12 @@
+entity: digital_loggers
+server:
+  host: 0.0.0.0
+  port: 6200
+log_level: INFO
+devices:
+  - entity: EPC7_1
+    device_number: 0
+    dl_host: 192.168.1.7
+    dl_username: !env EPC7_USERNAME
+    dl_password: !env EPC7_PASSWORD
+    timeout: 30

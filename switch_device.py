@@ -77,6 +77,10 @@ class SwitchDevice:
         self._connected = False
         logger.info(f"Disconnected from switch: {self._config.entity}")
 
+    @property
+    def entity(self) -> str:
+        return self._config.entity
+
     ########################
     # ISwitchV3 properties #
     ########################

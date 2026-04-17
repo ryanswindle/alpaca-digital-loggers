@@ -89,6 +89,7 @@ python test.py
 ```bash
 docker build -t alpaca-digital-loggers .
 docker run -d --name alpaca-digital-loggers \
+    -v ./config.yaml:/alpyca/config.yaml:ro \
     --network host \
     --env-file .env \
     --restart unless-stopped \

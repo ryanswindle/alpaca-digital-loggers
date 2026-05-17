@@ -1,6 +1,6 @@
 from typing import Annotated, Dict
 
-from fastapi import APIRouter, Depends, Form, HTTPException, Query
+from fastapi import APIRouter, Depends, Form, HTTPException
 
 from exceptions import (
     DriverException,
@@ -10,7 +10,7 @@ from exceptions import (
 )
 from log import get_logger
 from responses import MethodResponse, PropertyResponse, StateValue
-from shr import AlpacaGetParams, AlpacaPutParams, to_bool
+from shr import AlpacaGetParams, AlpacaPutParams, alpaca_put_params, to_bool
 from switch_device import SwitchDevice
 
 
@@ -74,7 +74,8 @@ def _validate_switch_id(device: SwitchDevice, switch_id: int):
 # ASCOM Methods Common To All Devices #
 #######################################
 @router.put("/{devnum}/action", summary="")
-async def action(devnum: int, params: AlpacaPutParams = Depends()):
+async def action(devnum: int, params: AlpacaPutParams = Depends(alpaca_put_params)):
+    get_device(devnum)
     return MethodResponse.create(
         client_transaction_id=params.client_transaction_id,
         error=NotImplementedException("Action"),
@@ -82,7 +83,8 @@ async def action(devnum: int, params: AlpacaPutParams = Depends()):
 
 
 @router.put("/{devnum}/commandblind", summary="")
-async def commandblind(devnum: int, params: AlpacaPutParams = Depends()):
+async def commandblind(devnum: int, params: AlpacaPutParams = Depends(alpaca_put_params)):
+    get_device(devnum)
     return MethodResponse.create(
         client_transaction_id=params.client_transaction_id,
         error=NotImplementedException("CommandBlind"),
@@ -90,7 +92,8 @@ async def commandblind(devnum: int, params: AlpacaPutParams = Depends()):
 
 
 @router.put("/{devnum}/commandbool", summary="")
-async def commandbool(devnum: int, params: AlpacaPutParams = Depends()):
+async def commandbool(devnum: int, params: AlpacaPutParams = Depends(alpaca_put_params)):
+    get_device(devnum)
     return MethodResponse.create(
         client_transaction_id=params.client_transaction_id,
         error=NotImplementedException("CommandBool"),
@@ -98,7 +101,8 @@ async def commandbool(devnum: int, params: AlpacaPutParams = Depends()):
 
 
 @router.put("/{devnum}/commandstring", summary="")
-async def commandstring(devnum: int, params: AlpacaPutParams = Depends()):
+async def commandstring(devnum: int, params: AlpacaPutParams = Depends(alpaca_put_params)):
+    get_device(devnum)
     return MethodResponse.create(
         client_transaction_id=params.client_transaction_id,
         error=NotImplementedException("CommandString"),
@@ -106,7 +110,7 @@ async def commandstring(devnum: int, params: AlpacaPutParams = Depends()):
 
 
 @router.put("/{devnum}/connect", summary="")
-async def connect(devnum: int, params: AlpacaPutParams = Depends()):
+async def connect(devnum: int, params: AlpacaPutParams = Depends(alpaca_put_params)):
     device = get_device(devnum)
     try:
         device.connect()
@@ -130,9 +134,12 @@ async def connected_get(devnum: int, params: AlpacaGetParams = Depends()):
 
 
 @router.put("/{devnum}/connected", summary="")
-async def connected_put(devnum: int, Connected: Annotated[str, Form()], params: AlpacaPutParams = Depends()):
+async def connected_put(devnum: int, params: AlpacaPutParams = Depends(alpaca_put_params)):
     device = get_device(devnum)
-    conn = to_bool(Connected)
+    value = params.get("Connected")
+    if value is None:
+        raise HTTPException(status_code=400, detail="Missing required parameter 'Connected'")
+    conn = to_bool(value)
     try:
         device.connected = conn
         return MethodResponse.create(
@@ -158,6 +165,7 @@ async def connecting_get(devnum: int, params: AlpacaGetParams = Depends()):
 
 @router.get("/{devnum}/description", summary="")
 async def description(devnum: int, params: AlpacaGetParams = Depends()):
+    get_device(devnum)
     return PropertyResponse.create(
         value=DeviceMetadata.Description,
         client_transaction_id=params.client_transaction_id,
@@ -169,7 +177,7 @@ async def devicestate(devnum: int, params: AlpacaGetParams = Depends()):
     device = get_device(devnum)
     if not device.connected:
         return PropertyResponse.create(
-            value=None,
+            value=[],
             client_transaction_id=params.client_transaction_id,
             error=NotConnectedException(),
         ).model_dump()
@@ -192,7 +200,7 @@ async def devicestate(devnum: int, params: AlpacaGetParams = Depends()):
 
 
 @router.put("/{devnum}/disconnect", summary="")
-async def disconnect(devnum: int, params: AlpacaPutParams = Depends()):
+async def disconnect(devnum: int, params: AlpacaPutParams = Depends(alpaca_put_params)):
     device = get_device(devnum)
     try:
         device.disconnect()
@@ -208,6 +216,7 @@ async def disconnect(devnum: int, params: AlpacaPutParams = Depends()):
 
 @router.get("/{devnum}/driverinfo", summary="")
 async def driverinfo(devnum: int, params: AlpacaGetParams = Depends()):
+    get_device(devnum)
     return PropertyResponse.create(
         value=DeviceMetadata.Info,
         client_transaction_id=params.client_transaction_id,
@@ -216,6 +225,7 @@ async def driverinfo(devnum: int, params: AlpacaGetParams = Depends()):
 
 @router.get("/{devnum}/driverversion", summary="")
 async def driverversion(devnum: int, params: AlpacaGetParams = Depends()):
+    get_device(devnum)
     return PropertyResponse.create(
         value=DeviceMetadata.Version,
         client_transaction_id=params.client_transaction_id,
@@ -224,6 +234,7 @@ async def driverversion(devnum: int, params: AlpacaGetParams = Depends()):
 
 @router.get("/{devnum}/interfaceversion", summary="")
 async def interfaceversion(devnum: int, params: AlpacaGetParams = Depends()):
+    get_device(devnum)
     return PropertyResponse.create(
         value=DeviceMetadata.InterfaceVersion,
         client_transaction_id=params.client_transaction_id,
@@ -232,6 +243,7 @@ async def interfaceversion(devnum: int, params: AlpacaGetParams = Depends()):
 
 @router.get("/{devnum}/name", summary="")
 async def name(devnum: int, params: AlpacaGetParams = Depends()):
+    get_device(devnum)
     return PropertyResponse.create(
         value=DeviceMetadata.Name,
         client_transaction_id=params.client_transaction_id,
@@ -240,6 +252,7 @@ async def name(devnum: int, params: AlpacaGetParams = Depends()):
 
 @router.get("/{devnum}/supportedactions", summary="")
 async def supportedactions(devnum: int, params: AlpacaGetParams = Depends()):
+    get_device(devnum)
     return PropertyResponse.create(
         value=[],
         client_transaction_id=params.client_transaction_id,
@@ -259,8 +272,9 @@ async def maxswitch(devnum: int, params: AlpacaGetParams = Depends()):
 # ISwitchV3 methods #
 #####################
 @router.get("/{devnum}/canasync", summary="")
-async def canasync(devnum: int, Id: int = Query(...), params: AlpacaGetParams = Depends()):
+async def canasync(devnum: int, params: AlpacaGetParams = Depends()):
     device = get_device(devnum)
+    Id = params.get_int("Id")
     if not device.connected:
         return PropertyResponse.create(
             value=None,
@@ -288,7 +302,7 @@ async def canasync(devnum: int, Id: int = Query(...), params: AlpacaGetParams = 
 
 
 @router.put("/{devnum}/cancelasync", summary="")
-async def cancelasync(devnum: int, Id: Annotated[int, Form()], params: AlpacaPutParams = Depends()):
+async def cancelasync(devnum: int, Id: Annotated[int, Form()], params: AlpacaPutParams = Depends(alpaca_put_params)):
     device = get_device(devnum)
     if not device.connected:
         return MethodResponse.create(
@@ -314,8 +328,9 @@ async def cancelasync(devnum: int, Id: Annotated[int, Form()], params: AlpacaPut
 
 
 @router.get("/{devnum}/canwrite", summary="")
-async def canwrite(devnum: int, Id: int = Query(...), params: AlpacaGetParams = Depends()):
+async def canwrite(devnum: int, params: AlpacaGetParams = Depends()):
     device = get_device(devnum)
+    Id = params.get_int("Id")
     if not device.connected:
         return PropertyResponse.create(
             value=None,
@@ -343,8 +358,9 @@ async def canwrite(devnum: int, Id: int = Query(...), params: AlpacaGetParams = 
 
 
 @router.get("/{devnum}/getswitch", summary="")
-async def getswitch(devnum: int, Id: int = Query(...), params: AlpacaGetParams = Depends()):
+async def getswitch(devnum: int, params: AlpacaGetParams = Depends()):
     device = get_device(devnum)
+    Id = params.get_int("Id")
     if not device.connected:
         return PropertyResponse.create(
             value=None,
@@ -372,7 +388,10 @@ async def getswitch(devnum: int, Id: int = Query(...), params: AlpacaGetParams =
 
 
 @router.get("/{devnum}/getswitchdescription", summary="")
-async def getswitchdescription(devnum: int, Id: int = Query(...), params: AlpacaGetParams = Depends()):
+async def getswitchdescription(devnum: int, params: AlpacaGetParams = Depends()):
+    device = get_device(devnum)
+    Id = params.get_int("Id")
+    get_device(devnum)
     return PropertyResponse.create(
         value=None,
         client_transaction_id=params.client_transaction_id,
@@ -381,8 +400,9 @@ async def getswitchdescription(devnum: int, Id: int = Query(...), params: Alpaca
 
 
 @router.get("/{devnum}/getswitchname", summary="")
-async def getswitchname(devnum: int, Id: int = Query(...), params: AlpacaGetParams = Depends()):
+async def getswitchname(devnum: int, params: AlpacaGetParams = Depends()):
     device = get_device(devnum)
+    Id = params.get_int("Id")
     if not device.connected:
         return PropertyResponse.create(
             value=None,
@@ -410,8 +430,9 @@ async def getswitchname(devnum: int, Id: int = Query(...), params: AlpacaGetPara
 
 
 @router.get("/{devnum}/getswitchvalue", summary="")
-async def getswitchvalue(devnum: int, Id: int = Query(...), params: AlpacaGetParams = Depends()):
+async def getswitchvalue(devnum: int, params: AlpacaGetParams = Depends()):
     device = get_device(devnum)
+    Id = params.get_int("Id")
     if not device.connected:
         return PropertyResponse.create(
             value=None,
@@ -439,8 +460,9 @@ async def getswitchvalue(devnum: int, Id: int = Query(...), params: AlpacaGetPar
 
 
 @router.get("/{devnum}/maxswitchvalue", summary="")
-async def maxswitchvalue(devnum: int, Id: int = Query(...), params: AlpacaGetParams = Depends()):
+async def maxswitchvalue(devnum: int, params: AlpacaGetParams = Depends()):
     device = get_device(devnum)
+    Id = params.get_int("Id")
     if not device.connected:
         return PropertyResponse.create(
             value=None,
@@ -468,8 +490,9 @@ async def maxswitchvalue(devnum: int, Id: int = Query(...), params: AlpacaGetPar
 
 
 @router.get("/{devnum}/minswitchvalue", summary="")
-async def minswitchvalue(devnum: int, Id: int = Query(...), params: AlpacaGetParams = Depends()):
+async def minswitchvalue(devnum: int, params: AlpacaGetParams = Depends()):
     device = get_device(devnum)
+    Id = params.get_int("Id")
     if not device.connected:
         return PropertyResponse.create(
             value=None,
@@ -497,7 +520,8 @@ async def minswitchvalue(devnum: int, Id: int = Query(...), params: AlpacaGetPar
 
 
 @router.put("/{devnum}/setasync", summary="")
-async def setasync(devnum: int, Id: Annotated[int, Form()], State: Annotated[str, Form()], params: AlpacaPutParams = Depends()):
+async def setasync(devnum: int, Id: Annotated[int, Form()], State: Annotated[str, Form()], params: AlpacaPutParams = Depends(alpaca_put_params)):
+    get_device(devnum)
     return MethodResponse.create(
         client_transaction_id=params.client_transaction_id,
         error=NotImplementedException("SetAsync"),
@@ -505,7 +529,8 @@ async def setasync(devnum: int, Id: Annotated[int, Form()], State: Annotated[str
 
 
 @router.put("/{devnum}/setasyncvalue", summary="")
-async def setasyncvalue(devnum: int, Id: Annotated[int, Form()], Value: Annotated[float, Form()], params: AlpacaPutParams = Depends()):
+async def setasyncvalue(devnum: int, Id: Annotated[int, Form()], Value: Annotated[float, Form()], params: AlpacaPutParams = Depends(alpaca_put_params)):
+    get_device(devnum)
     return MethodResponse.create(
         client_transaction_id=params.client_transaction_id,
         error=NotImplementedException("SetAsyncValue"),
@@ -513,8 +538,10 @@ async def setasyncvalue(devnum: int, Id: Annotated[int, Form()], Value: Annotate
 
 
 @router.put("/{devnum}/setswitch", summary="")
-async def setswitch(devnum: int, Id: Annotated[int, Form()], State: Annotated[str, Form()], params: AlpacaPutParams = Depends()):
+async def setswitch(devnum: int, Id: Annotated[int, Form()], State: Annotated[str, Form()], params: AlpacaPutParams = Depends(alpaca_put_params)):
     device = get_device(devnum)
+    # Validate State before connected check so bad values yield 400.
+    state = to_bool(State)
     if not device.connected:
         return MethodResponse.create(
             client_transaction_id=params.client_transaction_id,
@@ -526,7 +553,6 @@ async def setswitch(devnum: int, Id: Annotated[int, Form()], State: Annotated[st
             client_transaction_id=params.client_transaction_id,
             error=err,
         ).model_dump()
-    state = to_bool(State)
     try:
         device.set_switch(Id, state)
         return MethodResponse.create(
@@ -540,7 +566,8 @@ async def setswitch(devnum: int, Id: Annotated[int, Form()], State: Annotated[st
 
 
 @router.put("/{devnum}/setswitchname", summary="")
-async def setswitchname(devnum: int, params: AlpacaPutParams = Depends()):
+async def setswitchname(devnum: int, params: AlpacaPutParams = Depends(alpaca_put_params)):
+    get_device(devnum)
     return MethodResponse.create(
         client_transaction_id=params.client_transaction_id,
         error=NotImplementedException("SetSwitchName"),
@@ -548,7 +575,8 @@ async def setswitchname(devnum: int, params: AlpacaPutParams = Depends()):
 
 
 @router.put("/{devnum}/setswitchvalue", summary="")
-async def setswitchvalue(devnum: int, Id: Annotated[int, Form()], Value: Annotated[float, Form()], params: AlpacaPutParams = Depends()):
+async def setswitchvalue(devnum: int, Id: Annotated[int, Form()], Value: Annotated[float, Form()], params: AlpacaPutParams = Depends(alpaca_put_params)):
+    get_device(devnum)
     return MethodResponse.create(
         client_transaction_id=params.client_transaction_id,
         error=NotImplementedException("SetSwitchValue"),
@@ -556,7 +584,10 @@ async def setswitchvalue(devnum: int, Id: Annotated[int, Form()], Value: Annotat
 
 
 @router.get("/{devnum}/statechangecomplete", summary="")
-async def statechangecomplete(devnum: int, Id: int = Query(...), params: AlpacaGetParams = Depends()):
+async def statechangecomplete(devnum: int, params: AlpacaGetParams = Depends()):
+    device = get_device(devnum)
+    Id = params.get_int("Id")
+    get_device(devnum)
     return MethodResponse.create(
         client_transaction_id=params.client_transaction_id,
         error=NotImplementedException("StateChangeComplete"),
@@ -564,8 +595,9 @@ async def statechangecomplete(devnum: int, Id: int = Query(...), params: AlpacaG
 
 
 @router.get("/{devnum}/switchstep", summary="")
-async def switchstep(devnum: int, Id: int = Query(...), params: AlpacaGetParams = Depends()):
+async def switchstep(devnum: int, params: AlpacaGetParams = Depends()):
     device = get_device(devnum)
+    Id = params.get_int("Id")
     if not device.connected:
         return PropertyResponse.create(
             value=None,
